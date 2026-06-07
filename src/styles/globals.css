@@ -1,0 +1,215 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   ALQIA COMMERCIAL OS — Estilos Globales
+   Identidad visual Alqia
+   ============================================ */
+
+@layer base {
+  /* ── Tokens dark (default) ─────────────────────────────── */
+  :root {
+    --color-deep:     #202D3D;
+    --color-dark:     #18212D;
+    --color-darker:   #111923;
+    /* Sobreescribir ring color de Tailwind — usar marca Alqia en lugar del azul por defecto */
+    --tw-ring-color: rgba(249, 128, 88, 0.45);
+    --color-copper:   #F98058;
+    --color-text:     #FFFFFF;
+    --color-secondary:#A7B3C2;
+    --color-muted:    #718096;
+    --color-success:  #4ADE80;
+    --color-warning:  #FACC15;
+    --color-risk:     #FB7185;
+    --color-info:     #38BDF8;
+
+    --glass-bg:       rgba(255, 255, 255, 0.06);
+    --glass-active:   rgba(255, 255, 255, 0.10);
+    --glass-border:   rgba(255, 255, 255, 0.10);
+
+    /* ── Superficies semánticas (dark) ── */
+    --surface-app:        #0E1620;
+    --surface-sidebar:    #0D1520;
+    --surface-topbar:     rgba(14,22,32,0.85);
+    --surface-card:       rgba(255,255,255,0.05);
+    --surface-card-hover: rgba(255,255,255,0.08);
+    --surface-elevated:   #18212D;
+    --border-subtle:      rgba(255,255,255,0.06);
+    --border-normal:      rgba(255,255,255,0.10);
+    --text-base:          #FFFFFF;
+    --text-secondary:     #A7B3C2;
+    --text-muted:         #718096;
+    --scrollbar-thumb:    rgba(255,255,255,0.12);
+    --scrollbar-hover:    rgba(255,255,255,0.20);
+  }
+
+  /* ── Tokens light ──────────────────────────────────────── */
+  .light {
+    --surface-app:        #F0F3F7;
+    --surface-sidebar:    #FFFFFF;
+    --surface-topbar:     rgba(255,255,255,0.92);
+    --surface-card:       rgba(255,255,255,0.90);
+    --surface-card-hover: rgba(255,255,255,1);
+    --surface-elevated:   #FFFFFF;
+    --border-subtle:      rgba(0,0,0,0.06);
+    --border-normal:      rgba(0,0,0,0.10);
+    --text-base:          #1A2536;
+    --text-secondary:     #3D5166;
+    --text-muted:         #6B7A8D;
+    --glass-bg:           rgba(0,0,0,0.03);
+    --glass-active:       rgba(0,0,0,0.06);
+    --glass-border:       rgba(0,0,0,0.08);
+    --scrollbar-thumb:    rgba(0,0,0,0.15);
+    --scrollbar-hover:    rgba(0,0,0,0.25);
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body, #root {
+    height: 100%;
+    width: 100%;
+  }
+
+  body {
+    background-color: var(--surface-app);
+    color: var(--text-base);
+    font-family: 'Questrial', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  /* Scrollbar personalizada */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-hover);
+  }
+
+  /* Selección de texto */
+  ::selection {
+    background: rgba(249, 128, 88, 0.3);
+    color: #FFFFFF;
+  }
+
+  /* ── Focus ring — color de marca Alqia (#F98058) ──────────
+     Reemplaza el azul por defecto del navegador y de Tailwind.
+     Solo visible con teclado (focus-visible), no al hacer clic.
+  ─────────────────────────────────────────────────────────── */
+  *:focus {
+    outline: none;
+  }
+
+  *:focus-visible {
+    outline: 2px solid #F98058;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(249, 128, 88, 0.18);
+    border-radius: inherit;
+  }
+
+  /* Para inputs y textareas: glow más suave */
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: 2px solid #F98058;
+    outline-offset: 0;
+    box-shadow: 0 0 0 3px rgba(249, 128, 88, 0.20);
+  }
+}
+
+@layer components {
+  /* ---- Glass Card base ---- */
+  .glass {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .glass-active {
+    background: var(--glass-active);
+    border: 1px solid rgba(255,255,255,0.14);
+  }
+
+  /* ---- Botón primario Alqia ---- */
+  .btn-copper {
+    @apply bg-alqia-copper text-white font-sans font-medium
+           px-4 py-2 rounded-xl
+           hover:bg-alqia-copper-hover
+           transition-all duration-200
+           shadow-none hover:shadow-copper-glow
+           active:scale-95;
+  }
+
+  .btn-ghost {
+    @apply glass text-alqia-secondary font-sans
+           px-4 py-2 rounded-xl
+           hover:glass-active hover:text-white
+           transition-all duration-200
+           active:scale-95;
+  }
+
+  /* ---- Score ring colors ---- */
+  .score-low    { color: #FB7185; }
+  .score-mid    { color: #FACC15; }
+  .score-high   { color: #38BDF8; }
+  .score-top    { color: #4ADE80; }
+
+  /* ---- Sidebar nav item ---- */
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-xl
+           text-alqia-secondary text-sm
+           transition-all duration-200 cursor-pointer
+           hover:bg-white/5 hover:text-white;
+  }
+  .nav-item-active {
+    @apply bg-white/8 text-white;
+    border-left: 2px solid #F98058;
+  }
+
+  /* ---- Status badge base ---- */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5
+           rounded-full text-xs font-medium;
+  }
+
+  /* ---- Tipografía de datos (tablas) ---- */
+  .font-data {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
+
+@layer utilities {
+  .text-gradient-copper {
+    background: linear-gradient(135deg, #F98058, #FACC15);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .bg-glass {
+    background: var(--glass-bg);
+  }
+  .bg-glass-active {
+    background: var(--glass-active);
+  }
+  .border-glass {
+    border-color: var(--glass-border);
+  }
+}
