@@ -21,13 +21,13 @@ export function AppRouter() {
     <BrowserRouter>
       <Routes>
         {/* Landing pública */}
-        <Route path="/landing" element={<LandingPage />} />
+        <Route path="/" element={<LandingPage />} />
 
         {/* Autenticación */}
         <Route path="/login" element={<LoginPage />} />
 
         {/* App principal */}
-        <Route element={<AppShell />}>
+        <Route path="/app" element={<AppShell />}>
           <Route index element={<RevenueRadarPage />} />
           <Route path="oportunidades" element={<OpportunitiesPage />} />
           <Route path="oportunidades/:id" element={<OpportunityDetailPage />} />
@@ -44,7 +44,7 @@ export function AppRouter() {
         </Route>
 
         {/* Catch-all */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/app" replace />} />
       </Routes>
     </BrowserRouter>
   )

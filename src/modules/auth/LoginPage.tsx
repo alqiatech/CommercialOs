@@ -27,7 +27,7 @@ export function LoginPage() {
 
     // Mock: cualquier credencial entra
     logEvent('auth.login_success', { email })
-    navigate('/')
+    navigate('/app')
   }
 
   return (

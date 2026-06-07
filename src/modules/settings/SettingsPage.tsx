@@ -286,23 +286,6 @@ function TecnicoTab() {
         </div>
       </GlassCard>
 
-      <GlassCard>
-        <h4 className="text-xs font-medium text-alqia-muted uppercase tracking-widest mb-3">Variables de entorno activas</h4>
-        <div className="flex flex-col gap-2">
-          {[
-            ['VITE_USE_MOCK', import.meta.env.VITE_USE_MOCK ?? 'true'],
-            ['VITE_APP_ENV', import.meta.env.VITE_APP_ENV ?? 'development'],
-            ['VITE_API_BASE_URL', import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001'],
-          ].map(([key, val]) => (
-            <div key={key} className="flex items-center gap-3 text-[10px] font-mono">
-              <span className="text-alqia-info">{key}</span>
-              <span className="text-alqia-muted">=</span>
-              <span className="text-alqia-secondary">{val}</span>
-            </div>
-          ))}
-        </div>
-      </GlassCard>
-
       <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-alqia-warning/15 bg-alqia-warning/5">
         <AlertTriangle size={12} className="text-alqia-warning flex-shrink-0" />
         <p className="text-[11px] text-alqia-secondary">
