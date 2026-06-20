@@ -27,11 +27,17 @@ import sellersRoutes from './routes/sellers.routes'
 
 const app = express()
 const PORT = process.env.PORT ?? 3001
+const configuredCorsOrigins = (process.env.CORS_ORIGIN ?? '')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean)
 
 // ── Middleware ────────────────────────────────────────────────────────────
 app.use(cors({
   origin: (origin, cb) => {
-    if (!origin || /^http:\/\/localhost(:\d+)?$/.test(origin)) return cb(null, true)
+    const isLocalhost = /^http:\/\/localhost(:\d+)?$/.test(origin ?? '')
+    const isConfiguredOrigin = Boolean(origin && configuredCorsOrigins.includes(origin))
+    if (!origin || isLocalhost || isConfiguredOrigin) return cb(null, true)
     cb(new Error('Not allowed by CORS'))
   },
 }))
@@ -84,7 +90,7 @@ app.listen(PORT, () => {
   console.log(`\n╔══════════════════════════════════════════╗`)
   console.log(`  Alqia Commercial OS  http://localhost:${PORT}`)
   console.log(`  Modo IA: ${process.env.AI_MODE ?? 'mock'}`)
-  console.log(`  CORS: localhost (todos los puertos)`)
+  console.log(`  CORS: localhost + ${configuredCorsOrigins.join(', ') || 'sin origenes externos configurados'}`)
   console.log(`╚══════════════════════════════════════════╝\n`)
 })
 
