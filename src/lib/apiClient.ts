@@ -5,8 +5,11 @@
 // La clave OpenAI vive exclusivamente en server/.env.local
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL
-  ?? (import.meta.env.DEV ? 'http://localhost:3001' : '')
+const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
+const isLocalhostBaseUrl = Boolean(configuredBaseUrl && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredBaseUrl))
+const BASE_URL = import.meta.env.DEV
+  ? (configuredBaseUrl || 'http://localhost:3001')
+  : (isLocalhostBaseUrl ? '' : (configuredBaseUrl || ''))
 const SESSION_STORAGE_KEY = 'alqia-auth-session'
 
 export interface ApiError {

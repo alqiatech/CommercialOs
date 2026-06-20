@@ -6,6 +6,18 @@
 [build.environment]
   NODE_VERSION = "20"
 
+[[redirects]]
+  from = "/api/*"
+  to = "https://commercialos-production.up.railway.app/api/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/health"
+  to = "https://commercialos-production.up.railway.app/health"
+  status = 200
+  force = true
+
 # Redirigir todas las rutas al index.html para React Router SPA
 [[redirects]]
   from = "/*"
