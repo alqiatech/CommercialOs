@@ -1,10 +1,8 @@
 import { config } from 'dotenv'
-import { resolve, dirname } from 'path'
-import { fileURLToPath } from 'url'
+import { resolve } from 'path'
 
 // ── Cargar variables de entorno ANTES de cualquier import que las necesite ──
-const __dirname = dirname(fileURLToPath(import.meta.url))
-config({ path: resolve(__dirname, '.env.local') })
+config({ path: resolve(process.cwd(), '.env.local') })
 
 import express from 'express'
 import cors from 'cors'
@@ -16,6 +14,7 @@ import opportunitiesRoutes from './routes/opportunities.routes'
 import interactionsRoutes from './routes/interactions.routes'
 import tasksRoutes from './routes/tasks.routes'
 import authRoutes from './routes/auth.routes'
+import sellersRoutes from './routes/sellers.routes'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Alqia Commercial OS — AI Gateway Server — Express
@@ -73,6 +72,7 @@ app.use('/api/contacts', contactsRoutes)
 app.use('/api/opportunities', opportunitiesRoutes)
 app.use('/api/interactions', interactionsRoutes)
 app.use('/api/tasks', tasksRoutes)
+app.use('/api/sellers', sellersRoutes)
 
 // ── 404 ──────────────────────────────────────────────────────────────────
 app.use((_req, res) => {

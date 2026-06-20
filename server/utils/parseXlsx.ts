@@ -16,7 +16,7 @@ export function parseXlsxBuffer(buffer: Buffer): ParseResult {
   }
 
   const sheet = workbook.Sheets[sheetName]
-  const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+  const raw = XLSX.utils.sheet_to_json<Array<string | number | boolean | Date | null>>(sheet, {
     header: 1,
     defval: '',
     blankrows: false,
@@ -27,12 +27,12 @@ export function parseXlsxBuffer(buffer: Buffer): ParseResult {
   }
 
   // Primera fila como headers
-  const headerRow = raw[0] as string[]
+  const headerRow = raw[0] ?? []
   const headers = headerRow.map(h => String(h ?? '').trim()).filter(Boolean)
 
   const rows: Record<string, string>[] = []
   for (let i = 1; i < raw.length; i++) {
-    const rowArr = raw[i] as unknown[]
+    const rowArr = raw[i] ?? []
     const record: Record<string, string> = {}
     let hasValue = false
     headers.forEach((h, idx) => {

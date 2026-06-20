@@ -1,22 +1,26 @@
 import { GlassCard } from '@/components/ui/GlassCard'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { EmptyState } from '@/components/ui/States'
+import { EmptyState, ErrorState, LoadingState } from '@/components/ui/States'
 import { ActionButton } from '@/components/ui/ActionButton'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { ScoreRing } from '@/components/ui/ScoreRing'
 import { useAppStore } from '@/store/appStore'
 import { formatCurrency, formatRelativeDate } from '@/lib/utils'
+import { fetchOpportunities } from '@/lib/apiClient'
 import { Target, Filter, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 
 export function OpportunitiesPage() {
   const navigate = useNavigate()
-  const { activeOpportunities, activeContacts, activeStages, activeIndustry } = useAppStore()
+  const { activeCompany, activeOpportunities, activeContacts, activeStages, activeIndustry, currentUser } = useAppStore()
   const [view, setView] = useState<'list' | 'pipeline'>('list')
   const voc = activeIndustry.vocabulary
+  const realCompanyId = activeCompany.db_company_id
+  const ownerFilter = currentUser.role_type === 'sales_rep' ? currentUser.id : undefined
 
-  const opps = activeOpportunities
+  const fallbackOpps = activeOpportunities
     .filter(o => o.status === 'open')
     .map(o => ({
       ...o,
@@ -24,6 +28,16 @@ export function OpportunitiesPage() {
       stage: activeStages.find(s => s.id === o.stage_id),
     }))
     .sort((a, b) => b.urgency_score - a.urgency_score)
+
+  const opportunitiesQuery = useQuery({
+    queryKey: ['opportunities', realCompanyId, ownerFilter],
+    queryFn: () => fetchOpportunities(realCompanyId as string, ownerFilter ? { owner_user_id: ownerFilter } : undefined),
+    enabled: Boolean(realCompanyId),
+  })
+
+  const opps = opportunitiesQuery.data?.data?.length
+    ? opportunitiesQuery.data.data
+    : fallbackOpps
 
   const stageColors: Record<string, string> = Object.fromEntries(
     activeStages.map(s => [
@@ -60,13 +74,17 @@ export function OpportunitiesPage() {
         }
       />
 
-      {opps.length === 0 ? (
+      {opportunitiesQuery.isLoading && realCompanyId ? (
+        <LoadingState rows={4} />
+      ) : opportunitiesQuery.isError && realCompanyId ? (
+        <ErrorState message="No se pudieron cargar las oportunidades reales." onRetry={() => opportunitiesQuery.refetch()} />
+      ) : opps.length === 0 ? (
         <EmptyState
           icon={<Target size={24} />}
           title="Sin oportunidades"
           description="Importa leads o crea una oportunidad manual para activar el radar comercial."
           action="Importar leads"
-          onAction={() => navigate('/importaciones')}
+          onAction={() => navigate('/app/importaciones')}
         />
       ) : (
         <GlassCard padding="none" className="overflow-hidden">
@@ -79,20 +97,20 @@ export function OpportunitiesPage() {
               </tr>
             </thead>
             <tbody>
-              {opps.map((opp, i) => (
+              {opps.map((opp) => (
                 <tr
                   key={opp.id}
-                  onClick={() => navigate(`/oportunidades/${opp.id}`)}
+                  onClick={() => navigate(`/app/oportunidades/${opp.id}`)}
                   className="border-b border-white/[0.04] hover:bg-white/[0.03] cursor-pointer transition-colors"
                 >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-full bg-alqia-copper/20 flex items-center justify-center text-alqia-copper text-[11px] font-medium flex-shrink-0">
-                        {opp.contact?.full_name.split(' ').map(n => n[0]).join('').slice(0,2) ?? '?'}
+                        {opp.contact?.full_name.split(' ').map(n => n[0]).join('').slice(0, 2) ?? '?'}
                       </div>
                       <div>
                         <p className="text-xs text-white font-sans">{opp.contact?.full_name ?? '—'}</p>
-                        <p className="text-[10px] text-alqia-muted">{opp.contact?.city}</p>
+                        <p className="text-[10px] text-alqia-muted">{opp.contact?.city ?? '—'}</p>
                       </div>
                     </div>
                   </td>
@@ -109,7 +127,7 @@ export function OpportunitiesPage() {
                     {opp.last_contact_at ? formatRelativeDate(opp.last_contact_at) : '—'}
                   </td>
                   <td className="px-4 py-3 text-xs text-alqia-secondary">
-                    {opp.owner?.full_name.split(' ')[0] ?? '—'}
+                    {opp.owner_user_id ? 'Asignada' : '—'}
                   </td>
                 </tr>
               ))}

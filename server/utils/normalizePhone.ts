@@ -81,7 +81,7 @@ export function normalizePhone(raw: string | undefined | null): PhoneResult {
     }
   }
 
-  if (country === 'US' || country === 'CA') {
+  if (country === 'US') {
     if (nationalDigits.length !== 10) {
       return { value: digits, e164: '', original, valid: false, country, line_type: 'unknown', reason: 'longitud_invalida' }
     }

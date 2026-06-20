@@ -7,12 +7,38 @@ import { aiLeadClassifier } from '../services/aiLeadClassifier'
 import { aiRadarService } from '../services/aiRadarService'
 import { aiMessageGenerator } from '../services/aiMessageGenerator'
 import { aiOpportunitySummary, aiNextBestAction } from '../services/aiOpportunitySummary'
+import { supabaseAdmin } from '../services/supabaseAdmin'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Rutas IA — todos los endpoints bajo /api/ai/
 // ─────────────────────────────────────────────────────────────────────────────
 
 const router = Router()
+
+// GET /api/ai/findings?company_id=
+router.get('/findings', async (req, res) => {
+  try {
+    const { company_id, limit = '20' } = req.query as Record<string, string>
+    if (!company_id) {
+      res.status(400).json({ error: 'company_id requerido' })
+      return
+    }
+
+    const pageSize = Math.min(100, Math.max(1, parseInt(limit)))
+    const { data, error } = await supabaseAdmin
+      .from('ai_findings')
+      .select('*')
+      .eq('company_id', company_id)
+      .order('created_at', { ascending: false })
+      .limit(pageSize)
+
+    if (error) throw error
+
+    res.json({ data: data ?? [] })
+  } catch (err) {
+    res.status(500).json({ error: 'Error al cargar hallazgos IA', details: String(err) })
+  }
+})
 
 // POST /api/ai/classify-lead
 router.post('/classify-lead', async (req, res) => {

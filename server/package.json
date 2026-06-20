@@ -1,5 +1,5 @@
 {
-  "name": "portalia-ai-server",
+  "name": "alqia-commercial-os-ai-server",
   "version": "1.0.0",
   "description": "Gateway IA de Alqia Commercial OS — nunca expone claves al frontend",
   "main": "dist/index.js",

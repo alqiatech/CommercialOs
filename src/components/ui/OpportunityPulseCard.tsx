@@ -23,7 +23,7 @@ export function OpportunityPulseCard({ opportunity, className }: OpportunityPuls
 
   const handleOpen = () => {
     logEvent('opportunity.opened', { id: opportunity.id })
-    navigate(`/oportunidades/${opportunity.id}`)
+    navigate(`/app/oportunidades/${opportunity.id}`)
   }
 
   const handleWhatsApp = (e: React.MouseEvent) => {

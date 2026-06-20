@@ -1,4 +1,8 @@
-# React + TypeScript + Vite
+# Alqia Commercial OS
+
+Aplicacion comercial con frontend React + TypeScript + Vite y backend server-side para integraciones de IA y Supabase.
+
+## Stack base
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

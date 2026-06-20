@@ -11,15 +11,19 @@ export interface RawLead {
   last_name?: string
   email?: string
   phone?: string
+  whatsapp_phone?: string
   city?: string
   state?: string
+  country?: string
   company?: string
   product_interest?: string
   source?: string
+  campaign?: string
   created_at?: string
   owner?: string
   comments?: string
   consent_status?: string
+  estimated_value?: string
   [key: string]: string | undefined
 }
 
@@ -36,16 +40,22 @@ export interface CleanedLead {
   phone_clean: string
   phone_e164: string
   phone_valid: boolean
+  whatsapp_raw: string
+  whatsapp_e164: string
+  whatsapp_valid: boolean
   phone_country: string
   phone_line_type: string
   city: string
   state: string
+  country: string
   company: string
   product_interest: string
   source: string
+  campaign: string
   created_at: string
   owner: string
   comments: string
+  estimated_value: number | null
   consent_status: 'yes' | 'no' | 'unknown'
   // Señales de calidad
   has_email: boolean
@@ -101,10 +111,12 @@ export function cleanLead(raw: RawLead): CleanedLead {
 
   // Teléfono
   const phoneResult = normalizePhone(raw.phone)
+  const whatsappResult = normalizePhone(raw.whatsapp_phone ?? raw.phone)
 
   // Ubicación
   const city = capitalize((raw.city ?? '').trim())
   const state = capitalize((raw.state ?? '').trim())
+  const country = ((raw.country ?? '').trim() || phoneResult.country || 'MX').toUpperCase()
 
   // Empresa
   const company = (raw.company ?? '').trim()
@@ -112,6 +124,10 @@ export function cleanLead(raw: RawLead): CleanedLead {
   // Fecha
   let createdAt = (raw.created_at ?? '').trim()
   if (!createdAt) createdAt = new Date().toISOString().split('T')[0]
+
+  const estimatedValueRaw = (raw.estimated_value ?? '').trim()
+  const estimatedValueSanitized = estimatedValueRaw.replace(/[^0-9.-]/g, '')
+  const estimatedValue = estimatedValueSanitized ? Number(estimatedValueSanitized) : null
 
   // Consentimiento
   const consentStatus = parseConsentStatus(raw.consent_status)
@@ -128,22 +144,28 @@ export function cleanLead(raw: RawLead): CleanedLead {
     phone_clean: phoneResult.value,
     phone_e164: phoneResult.e164,
     phone_valid: phoneResult.valid,
+    whatsapp_raw: whatsappResult.original,
+    whatsapp_e164: whatsappResult.e164,
+    whatsapp_valid: whatsappResult.valid,
     phone_country: phoneResult.country,
     phone_line_type: phoneResult.line_type,
     city,
     state,
+    country,
     company,
     product_interest: (raw.product_interest ?? '').trim(),
     source: (raw.source ?? '').trim(),
+    campaign: (raw.campaign ?? '').trim(),
     created_at: createdAt,
     owner: (raw.owner ?? '').trim(),
     comments: (raw.comments ?? '').trim(),
+    estimated_value: Number.isFinite(estimatedValue) ? estimatedValue : null,
     consent_status: consentStatus,
     // Señales booleanas
     has_email: emailResult.valid,
     has_phone: phoneResult.valid,
     has_name: fullName.length > 1,
-    has_location: !!(city || state),
+    has_location: !!(city || state || country),
     has_source: !!(raw.source?.trim()),
     has_consent: consentStatus === 'yes',
   }

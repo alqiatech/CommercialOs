@@ -2,10 +2,14 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ActionButton } from '@/components/ui/ActionButton'
 import { logEvent } from '@/lib/utils'
+import { loginWithPassword, storeAuthSession, type AuthApiUser } from '@/lib/apiClient'
+import { useAppStore } from '@/store/appStore'
+import { adaptAccessibleCompanies, adaptApiUserToAppUser } from '@/lib/authAdapters'
 import { Eye, EyeOff } from 'lucide-react'
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const { setCurrentUser, setCompanies, setAuthStatus } = useAppStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -23,11 +27,20 @@ export function LoginPage() {
     setLoading(true)
     logEvent('auth.login_attempted', { email })
 
-    await new Promise(r => setTimeout(r, 1200))
-
-    // Mock: cualquier credencial entra
-    logEvent('auth.login_success', { email })
-    navigate('/app')
+    try {
+      const { session, user } = await loginWithPassword(email, password)
+      storeAuthSession(session)
+      setCurrentUser(adaptApiUserToAppUser(user))
+      setCompanies(adaptAccessibleCompanies(user))
+      setAuthStatus('authenticated')
+      logEvent('auth.login_success', { email, role_type: user.role_type })
+      navigate('/app')
+    } catch (err) {
+      setError((err as Error).message || 'No se pudo iniciar sesion')
+      setAuthStatus('anonymous')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

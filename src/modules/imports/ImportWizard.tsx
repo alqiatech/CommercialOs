@@ -5,6 +5,7 @@ import { ActionButton } from '@/components/ui/ActionButton'
 import { useAppStore } from '@/store/appStore'
 import { previewImport, processImport } from '@/lib/apiClient'
 import type { PreviewResult, ProcessResult } from '@/lib/apiClient'
+import { getTemplate } from '@/data/industryTemplates'
 import {
   Upload, ArrowRight, ArrowLeft, CheckCircle, AlertCircle,
   FileText, Loader2, Users, Phone, Mail, Zap, Copy,
@@ -21,15 +22,19 @@ const DEST_LABELS: Record<string, string> = {
   last_name: 'Apellido',
   email: 'Correo electrónico',
   phone: 'Teléfono',
+  whatsapp_phone: 'WhatsApp',
   city: 'Ciudad',
   state: 'Estado',
+  country: 'País',
   company: 'Empresa',
   product_interest: 'Producto / Interés',
   source: 'Fuente',
+  campaign: 'Campaña',
   created_at: 'Fecha de captura',
   owner: 'Responsable',
   comments: 'Comentarios',
   consent_status: 'Consentimiento',
+  estimated_value: 'Valor estimado',
   skip: '— Ignorar columna —',
 }
 
@@ -70,7 +75,7 @@ const CLASS_LABELS: Record<string, string> = {
 
 export function ImportWizard() {
   const navigate = useNavigate()
-  const { activeCompany, activeIndustry } = useAppStore()
+  const { activeCompany, companies } = useAppStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [step, setStep] = useState<Step>('upload')
@@ -81,6 +86,11 @@ export function ImportWizard() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
+  const [selectedCompanyId, setSelectedCompanyId] = useState(activeCompany.id)
+
+  const selectedCompany = companies.find(company => company.id === selectedCompanyId) ?? activeCompany
+  const selectedIndustry = getTemplate(selectedCompany.industry_key)
+  const targetCompanyRef = selectedCompany.db_company_id ?? selectedCompany.id
 
   // ── Paso 1: Seleccionar / Drop archivo ────────────────────────────────
   const handleFile = useCallback(async (f: File) => {
@@ -91,7 +101,7 @@ export function ImportWizard() {
     setFile(f)
     setError(null)
     setLoading(true)
-    logEvent('import.file_selected', { name: f.name, size: f.size })
+    logEvent('import.file_selected', { name: f.name, size: f.size, company_id: targetCompanyRef })
     try {
       const result = await previewImport(f)
       setPreview(result)
@@ -102,7 +112,7 @@ export function ImportWizard() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [targetCompanyRef])
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
@@ -114,12 +124,23 @@ export function ImportWizard() {
   // ── Paso 2: Confirmar mapeo y procesar ───────────────────────────────
   const handleProcess = async () => {
     if (!preview) return
+    if (!targetCompanyRef) {
+      setError('Selecciona una unidad destino antes de procesar la importación.')
+      return
+    }
     setLoading(true)
     setStep('processing')
     setError(null)
-    logEvent('import.processing_started', { rows: preview.totalRows })
+    logEvent('import.processing_started', { rows: preview.totalRows, company_id: targetCompanyRef })
     try {
-      const res = await processImport(preview.rows, mapping, activeCompany.id)
+      const res = await processImport(
+        preview.rows,
+        mapping,
+        targetCompanyRef,
+        file?.name,
+        undefined,
+        selectedIndustry.industry_key,
+      )
       setResult(res)
       setStep('result')
       logEvent('import.completed', { total: res.metrics.total, ready: res.metrics.ready_for_cadence })
@@ -139,7 +160,7 @@ export function ImportWizard() {
         title="Nueva importación"
         description="Sube un archivo CSV o Excel para importar prospectos"
         actions={
-          <ActionButton variant="ghost" size="sm" icon={<ArrowLeft size={13} />} onClick={() => navigate('/importaciones')}>
+          <ActionButton variant="ghost" size="sm" icon={<ArrowLeft size={13} />} onClick={() => navigate('/app/importaciones')}>
             Volver
           </ActionButton>
         }
@@ -174,6 +195,27 @@ export function ImportWizard() {
       {/* ── PASO 1: Upload ─────────────────────────────────────────── */}
       {step === 'upload' && (
         <GlassCard>
+          <div className="mb-4 p-3 bg-white/[0.03] border border-white/[0.06] rounded-xl">
+            <p className="text-xs text-alqia-muted mb-1">Unidad destino</p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-white font-medium">{selectedCompany.name}</p>
+                <p className="text-xs text-alqia-secondary">{selectedIndustry.name}</p>
+              </div>
+              <select
+                value={selectedCompanyId}
+                onChange={(e) => setSelectedCompanyId(e.target.value)}
+                className="bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-alqia-copper/40"
+              >
+                {companies.map(company => (
+                  <option key={company.id} value={company.id} className="bg-alqia-dark text-white">
+                    {company.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <input
             ref={fileInputRef}
             type="file"
@@ -206,7 +248,7 @@ export function ImportWizard() {
             <div className="text-xs text-alqia-secondary">
               <p className="font-medium text-white mb-1">Campos que detectamos automáticamente</p>
               <p>Nombre, email, teléfono, ciudad, empresa, producto/interés, fuente, fecha, comentarios y consentimiento.</p>
-              <p className="mt-1">Después de subir el archivo podrás revisar y corregir el mapeo de columnas.</p>
+              <p className="mt-1">Después de subir el archivo podrás revisar y corregir el mapeo de columnas antes de procesar en {selectedCompany.name}.</p>
             </div>
           </div>
         </GlassCard>
@@ -228,6 +270,19 @@ export function ImportWizard() {
                 {preview.errors.length} advertencia{preview.errors.length > 1 ? 's' : ''}
               </div>
             )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="p-3 bg-white/[0.03] border border-white/[0.06] rounded-xl">
+              <p className="text-xs text-alqia-muted mb-1">Unidad destino</p>
+              <p className="text-sm text-white font-medium">{selectedCompany.name}</p>
+              <p className="text-xs text-alqia-secondary">{selectedIndustry.name}</p>
+            </div>
+            <div className="p-3 bg-white/[0.03] border border-white/[0.06] rounded-xl">
+              <p className="text-xs text-alqia-muted mb-1">Vista previa</p>
+              <p className="text-sm text-white font-medium">{Math.min(preview.previewRows.length, 20)} filas visibles</p>
+              <p className="text-xs text-alqia-secondary">El procesamiento usará los {preview.totalRows.toLocaleString()} registros completos.</p>
+            </div>
           </div>
 
           {/* Mapeo de columnas */}
@@ -259,20 +314,20 @@ export function ImportWizard() {
 
           {/* Preview de primeras filas */}
           <GlassCard>
-            <h3 className="text-sm font-medium text-white mb-3">Primeras 5 filas</h3>
+            <h3 className="text-sm font-medium text-white mb-3">Primeras 20 filas</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr>
-                    {preview.headers.slice(0, 6).map(h => (
+                    {preview.headers.slice(0, 8).map(h => (
                       <th key={h} className="text-left text-alqia-muted font-normal pb-2 pr-4 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {preview.previewRows.slice(0, 5).map((row, i) => (
+                  {preview.previewRows.slice(0, 20).map((row, i) => (
                     <tr key={i} className="border-t border-white/[0.04]">
-                      {preview.headers.slice(0, 6).map(h => (
+                      {preview.headers.slice(0, 8).map(h => (
                         <td key={h} className="py-1.5 pr-4 text-alqia-secondary truncate max-w-[120px]">
                           {row[h] || <span className="text-alqia-muted/30">—</span>}
                         </td>
@@ -410,7 +465,7 @@ export function ImportWizard() {
               <ActionButton variant="ghost" size="sm" icon={<Copy size={13} />} onClick={() => logEvent('import.export_results')}>
                 Exportar resultados
               </ActionButton>
-              <ActionButton variant="copper" size="sm" icon={<CheckCircle size={13} />} onClick={() => navigate('/data-trust')}>
+              <ActionButton variant="copper" size="sm" icon={<CheckCircle size={13} />} onClick={() => navigate('/app/data-trust')}>
                 Ver en Data Trust
               </ActionButton>
             </div>

@@ -1,7 +1,11 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '@/store/appStore'
 import { useCommercialStore } from '@/store/commercialStore'
+import { EmptyState, ErrorState, LoadingState } from '@/components/ui/States'
+import { ActionButton } from '@/components/ui/ActionButton'
 import { demoSellers } from '@/data/sellers.mock'
+import { fetchOpportunities, fetchSellers, updateOpportunityOwner } from '@/lib/apiClient'
 import {
   computeSellerPerformance,
   assignBatch,
@@ -14,6 +18,49 @@ import {
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { Opportunity } from '@/types'
+
+function normalizeOpportunityForSeller(companyId: string, opportunity: {
+  id: string
+  title: string
+  contact?: { id: string; full_name: string } | null
+  stage?: { id: string } | null
+  owner_user_id?: string | null
+  product_interest?: string | null
+  estimated_value?: number | null
+  probability: number
+  lead_intent_score: number
+  data_trust_score: number
+  urgency_score: number
+  status: string
+  last_contact_at?: string | null
+  updated_at?: string
+  won_at?: string | null
+}): Opportunity {
+  return {
+    id: opportunity.id,
+    tenant_id: 'tenant_runtime',
+    company_id: companyId,
+    pipeline_id: 'pipeline_runtime',
+    stage_id: opportunity.stage?.id ?? 'stage_runtime',
+    contact_id: opportunity.contact?.id ?? `contact_${opportunity.id}`,
+    owner_user_id: opportunity.owner_user_id ?? '',
+    title: opportunity.title,
+    product_interest: opportunity.product_interest ?? undefined,
+    estimated_value: opportunity.estimated_value ?? undefined,
+    currency: 'MXN',
+    probability: opportunity.probability,
+    lead_intent_score: opportunity.lead_intent_score,
+    data_trust_score: opportunity.data_trust_score,
+    urgency_score: opportunity.urgency_score,
+    status: opportunity.status as Opportunity['status'],
+    last_contact_at: opportunity.last_contact_at ?? undefined,
+    won_at: opportunity.won_at ?? undefined,
+    updated_at: opportunity.updated_at ?? new Date().toISOString(),
+    created_at: opportunity.updated_at ?? new Date().toISOString(),
+  }
+}
 
 // ─── Tarjeta de vendedor ───────────────────────────────────────────────────────
 
@@ -130,35 +177,86 @@ function UnassignedTray() {
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function SellersPage() {
-  const { activeOpportunities } = useAppStore()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { activeCompany, activeOpportunities } = useAppStore()
   const { importedOpportunities, acceptImportResult: _, updateOpportunity } = useCommercialStore()
+  const realCompanyId = activeCompany.db_company_id
+
+  const sellersQuery = useQuery({
+    queryKey: ['sellers', realCompanyId],
+    queryFn: () => fetchSellers(realCompanyId as string),
+    enabled: Boolean(realCompanyId),
+  })
+
+  const opportunitiesQuery = useQuery({
+    queryKey: ['opportunities', realCompanyId, 'sellers'],
+    queryFn: () => fetchOpportunities(realCompanyId as string),
+    enabled: Boolean(realCompanyId),
+  })
+
+  const assignMutation = useMutation({
+    mutationFn: async (assignments: Array<{ oppId: string; assignedTo: string | null }>) => {
+      await Promise.all(
+        assignments
+          .filter(result => result.assignedTo)
+          .map(result => updateOpportunityOwner(result.oppId, { owner_user_id: result.assignedTo })),
+      )
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['opportunities', realCompanyId] })
+      void queryClient.invalidateQueries({ queryKey: ['opportunities', realCompanyId, 'sellers'] })
+      void queryClient.invalidateQueries({ queryKey: ['sellers', realCompanyId] })
+    },
+  })
 
   // Combinar oportunidades reales + demo
-  const allOpps = [...activeOpportunities, ...importedOpportunities]
+  const allOpps: Opportunity[] = opportunitiesQuery.data?.data?.length
+    ? opportunitiesQuery.data.data.map(opportunity => normalizeOpportunityForSeller(realCompanyId as string, opportunity))
+    : [...activeOpportunities, ...importedOpportunities]
 
   const [selectedSeller, setSelectedSeller] = useState<string | null>(null)
   const [assignStrategy, setAssignStrategy] = useState<AssignmentStrategy>('round_robin')
 
-  const performances = useMemo(() =>
-    computeSellerPerformance(demoSellers, allOpps),
-    [allOpps]
-  )
+  const sellers = useMemo<Seller[]>(() => {
+    if (!sellersQuery.data?.data?.length) return demoSellers
+    return sellersQuery.data.data.map(seller => ({
+      id: seller.id,
+      tenant_id: seller.tenant_id,
+      company_id: seller.company_id,
+      user_id: seller.id,
+      name: seller.full_name,
+      email: seller.email,
+      phone: seller.phone ?? undefined,
+      role: seller.role_type === 'sales_rep' ? 'asesor' : seller.role_type === 'sales_manager' ? 'gerente' : 'director',
+      branch: seller.branch_id ?? undefined,
+      territories: [],
+      is_active: seller.status === 'active',
+      max_open_opps: seller.role_type === 'sales_rep' ? 25 : 10,
+      created_at: seller.created_at,
+      updated_at: seller.updated_at,
+    }))
+  }, [sellersQuery.data?.data])
 
-  const sellers = demoSellers
+  const performances = useMemo(() =>
+    computeSellerPerformance(sellers, allOpps),
+    [allOpps, sellers]
+  )
 
   const sellerStats = useMemo(() => {
     return Object.fromEntries(sellers.map(s => {
+      const realMetrics = sellersQuery.data?.data?.find(realSeller => realSeller.id === s.id)?.metrics
       const perf = performances[s.id]
       return [s.id, {
-        openOpps: perf?.openOpportunities ?? 0,
-        wonRecent: perf?.wonLast30Days ?? 0,
-        conversionRate: perf?.conversionRate ?? 0,
-        pipelineValue: perf?.totalPipelineValue ?? 0,
+        openOpps: realMetrics?.open_opportunities ?? perf?.openOpportunities ?? 0,
+        wonRecent: realMetrics?.won_last_30_days ?? perf?.wonLast30Days ?? 0,
+        conversionRate: realMetrics?.conversion_rate ?? perf?.conversionRate ?? 0,
+        pipelineValue: realMetrics?.pipeline_value ?? perf?.totalPipelineValue ?? 0,
       }]
     }))
-  }, [sellers, performances])
+  }, [performances, sellers, sellersQuery.data?.data])
 
-  const unassignedOpps = importedOpportunities.filter(o => !o.owner_user_id && o.status === 'open')
+  const unassignedOpps = allOpps.filter(o => !o.owner_user_id && o.status === 'open')
 
   const handleAutoAssign = () => {
     if (unassignedOpps.length === 0) return
@@ -167,10 +265,12 @@ export default function SellersPage() {
       sellers: sellers.filter(s => s.is_active),
       performances,
     })
+    if (realCompanyId) {
+      assignMutation.mutate(results.map(result => ({ oppId: result.oppId, assignedTo: result.assignedTo })))
+      return
+    }
     results.forEach(r => {
-      if (r.assignedTo) {
-        updateOpportunity(r.oppId, { owner_user_id: r.assignedTo })
-      }
+      if (r.assignedTo) updateOpportunity(r.oppId, { owner_user_id: r.assignedTo })
     })
   }
 
@@ -194,6 +294,14 @@ export default function SellersPage() {
       </div>
 
       {/* KPIs del equipo */}
+      {sellersQuery.isLoading && realCompanyId ? (
+        <LoadingState rows={3} />
+      ) : sellersQuery.isError && realCompanyId ? (
+        <ErrorState message="No se pudo cargar el equipo comercial real." onRetry={() => sellersQuery.refetch()} />
+      ) : sellers.length === 0 ? (
+        <EmptyState title="Sin vendedores activos" description="Cuando existan usuarios comerciales asignados a esta unidad aparecerán aquí." />
+      ) : (
+      <>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         {[
           { label: 'Asesores activos', value: sellers.filter(s => s.is_active).length, icon: <User size={12} />, color: 'text-alqia-info' },
@@ -259,6 +367,9 @@ export default function SellersPage() {
                   </div>
                 ))}
               </div>
+              <ActionButton variant="ghost" size="sm" className="mt-3 w-full justify-center" onClick={() => navigate(`/app/vendedores/${selectedSellerData.id}`)}>
+                Ver detalle del vendedor
+              </ActionButton>
             </div>
           )}
         </div>
@@ -301,9 +412,9 @@ export default function SellersPage() {
               </div>
             </div>
 
-            <button
+          <button
               onClick={handleAutoAssign}
-              disabled={unassignedOpps.length === 0}
+              disabled={assignMutation.isPending || unassignedOpps.length === 0}
               className={cn(
                 'w-full py-2.5 rounded-xl text-xs font-medium transition-all',
                 unassignedOpps.length > 0
@@ -311,7 +422,9 @@ export default function SellersPage() {
                   : 'bg-white/8 text-alqia-muted cursor-not-allowed',
               )}
             >
-              {unassignedOpps.length > 0
+              {assignMutation.isPending
+                ? 'Asignando...'
+                : unassignedOpps.length > 0
                 ? `Asignar ${unassignedOpps.length} oportunidades`
                 : 'Sin oportunidades pendientes'}
             </button>
@@ -334,6 +447,8 @@ export default function SellersPage() {
           </button>
         </div>
       </div>
+      </>
+      )}
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
-import { useAppStore, demoCompanies } from '@/store/appStore'
+import { useAppStore } from '@/store/appStore'
 import {
   Radar, Target, Upload, ShieldCheck, GitBranch,
   MessageSquare, CheckSquare, BookOpen, BarChart2,
@@ -13,27 +13,27 @@ const navGroups = [
   {
     label: 'Core',
     items: [
-      { to: '/',              icon: Radar,        label: 'Revenue Radar', id: 'radar' },
-      { to: '/oportunidades', icon: Target,       label: 'Oportunidades', id: 'opp' },
-      { to: '/importaciones', icon: Upload,       label: 'Importaciones', id: 'imp' },
-      { to: '/data-trust',    icon: ShieldCheck,  label: 'Data Trust',    id: 'dt' },
+      { to: '/app',                    icon: Radar,        label: 'Revenue Radar', id: 'radar' },
+      { to: '/app/oportunidades',      icon: Target,       label: 'Oportunidades', id: 'opp' },
+      { to: '/app/importaciones',      icon: Upload,       label: 'Importaciones', id: 'imp' },
+      { to: '/app/data-trust',         icon: ShieldCheck,  label: 'Data Trust',    id: 'dt' },
     ],
   },
   {
     label: 'Operaciones',
     items: [
-      { to: '/cadencias',      icon: GitBranch,     label: 'Cadencias',      id: 'cad' },
-      { to: '/vendedores',     icon: Users,          label: 'Vendedores',     id: 'sellers' },
-      { to: '/comunicaciones', icon: MessageSquare, label: 'Comunicaciones', id: 'com' },
-      { to: '/tareas',         icon: CheckSquare,   label: 'Tareas',         id: 'tasks' },
+      { to: '/app/cadencias',      icon: GitBranch,     label: 'Cadencias',      id: 'cad' },
+      { to: '/app/vendedores',     icon: Users,          label: 'Vendedores',     id: 'sellers' },
+      { to: '/app/comunicaciones', icon: MessageSquare, label: 'Comunicaciones', id: 'com' },
+      { to: '/app/tareas',         icon: CheckSquare,   label: 'Tareas',         id: 'tasks' },
     ],
   },
   {
     label: 'Sistema',
     items: [
-      { to: '/playbooks',    icon: BookOpen,  label: 'Playbooks',    id: 'pb' },
-      { to: '/reportes',     icon: BarChart2, label: 'Reportes',     id: 'rep' },
-      { to: '/configuracion', icon: Settings, label: 'Configuración', id: 'cfg' },
+      { to: '/app/playbooks',     icon: BookOpen,  label: 'Playbooks',    id: 'pb' },
+      { to: '/app/reportes',      icon: BarChart2, label: 'Reportes',     id: 'rep' },
+      { to: '/app/configuracion', icon: Settings, label: 'Configuración', id: 'cfg' },
     ],
   },
 ]
@@ -45,7 +45,7 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const location = useLocation()
-  const { activeCompanyId, activeCompany, setActiveCompany, theme } = useAppStore()
+  const { companies, activeCompanyId, activeCompany, setActiveCompany, theme } = useAppStore()
   const [companyPickerOpen, setCompanyPickerOpen] = useState(false)
   const isDark = theme === 'dark'
   const logoSrc = isDark ? '/Logoalqiacomosblanco.png' : '/Logoalqiacomososcuro.png'
@@ -113,7 +113,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           {companyPickerOpen && (
             <div className="absolute left-2 right-2 top-full mt-1 z-50 rounded-xl shadow-xl overflow-hidden border" style={{ background: 'var(--surface-elevated)', borderColor: 'var(--border-normal)' }}>
               <div className="max-h-64 overflow-y-auto py-1">
-                {demoCompanies.map(company => (
+                {companies.map(company => (
                   <button
                     key={company.id}
                     onClick={() => {
@@ -155,8 +155,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <div className="flex flex-col gap-px px-1.5">
               {group.items.map(item => {
                 const Icon = item.icon
-                const isActive = item.to === '/'
-                  ? location.pathname === '/'
+                const isActive = item.to === '/app'
+                  ? location.pathname === '/app'
                   : location.pathname.startsWith(item.to)
 
                 return (
@@ -209,4 +209,3 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     </aside>
   )
 }
-
