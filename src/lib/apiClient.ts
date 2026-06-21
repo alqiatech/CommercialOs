@@ -5,6 +5,8 @@
 // La clave OpenAI vive exclusivamente en server/.env.local
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { supabase } from './supabaseClient'
+
 const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
 const isLocalhostBaseUrl = Boolean(configuredBaseUrl && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredBaseUrl))
 const BASE_URL = import.meta.env.DEV
@@ -191,26 +193,105 @@ export interface AuthApiUser {
 }
 
 export async function loginWithPassword(email: string, password: string): Promise<{ session: AuthSession; user: AuthApiUser }> {
-  return post('/api/auth/login', { email, password })
+  try {
+    return await post('/api/auth/login', { email, password })
+  } catch (error) {
+    if (!shouldUseSupabaseAuthFallback(error)) throw error
+    return loginWithSupabase(email, password)
+  }
 }
 
 export async function fetchCurrentUser(token: string): Promise<{ user: AuthApiUser }> {
-  return getWithAuth('/api/auth/me', token)
+  try {
+    return await getWithAuth('/api/auth/me', token)
+  } catch (error) {
+    if (!shouldUseSupabaseAuthFallback(error)) throw error
+    return fetchSupabaseCurrentUser()
+  }
 }
 
 export async function refreshAuthSession(refreshToken: string): Promise<{ session: AuthSession; user: AuthApiUser }> {
-  return post('/api/auth/refresh', { refresh_token: refreshToken })
+  try {
+    return await post('/api/auth/refresh', { refresh_token: refreshToken })
+  } catch (error) {
+    if (!shouldUseSupabaseAuthFallback(error)) throw error
+    const { data, error: refreshError } = await supabase.auth.refreshSession({ refresh_token: refreshToken })
+    if (refreshError || !data.session) {
+      throw new Error(refreshError?.message ?? 'No se pudo refrescar la sesion')
+    }
+    const { user } = await fetchSupabaseCurrentUser()
+    return { session: mapSupabaseSession(data.session), user }
+  }
 }
 
 export async function logout(token?: string): Promise<void> {
-  const res = await fetch(`${BASE_URL}/api/auth/logout`, {
-    method: 'POST',
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-  })
-  if (!res.ok && res.status !== 204) {
-    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` })) as ApiError
-    throw new Error(err.error ?? `HTTP ${res.status}`)
+  try {
+    const res = await fetch(`${BASE_URL}/api/auth/logout`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+    if (!res.ok && res.status !== 204) {
+      const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` })) as ApiError
+      throw new Error(err.error ?? `HTTP ${res.status}`)
+    }
+  } catch (error) {
+    if (!shouldUseSupabaseAuthFallback(error)) throw error
+  } finally {
+    await supabase.auth.signOut().catch(() => undefined)
   }
+}
+
+function shouldUseSupabaseAuthFallback(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  return /HTTP (404|405)|servidor API|Failed to fetch|NetworkError|Load failed/i.test(error.message)
+}
+
+function mapSupabaseSession(session: { access_token: string; refresh_token: string; expires_at?: number | null }): AuthSession {
+  return {
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+    expires_at: session.expires_at ?? undefined,
+  }
+}
+
+async function loginWithSupabase(email: string, password: string): Promise<{ session: AuthSession; user: AuthApiUser }> {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+  if (error || !data.session) {
+    throw new Error(error?.message ?? 'Credenciales incorrectas')
+  }
+  const { user } = await fetchSupabaseCurrentUser()
+  return {
+    session: mapSupabaseSession(data.session),
+    user,
+  }
+}
+
+async function fetchSupabaseCurrentUser(): Promise<{ user: AuthApiUser }> {
+  const { data: authData, error: authError } = await supabase.auth.getUser()
+  if (authError || !authData.user) {
+    throw new Error(authError?.message ?? 'Sesion no encontrada')
+  }
+
+  const { data, error } = await supabase
+    .from('users')
+    .select(`
+      *,
+      tenants(id, name, slug, plan, ai_enabled, automation_enabled, branding),
+      user_company_access(
+        company_id,
+        branch_id,
+        access_level,
+        companies(id, name, slug, industry_key, city, country, status, settings)
+      )
+    `)
+    .eq('auth_user_id', authData.user.id)
+    .single()
+
+  if (error || !data) {
+    throw new Error(error?.message ?? 'No se encontro el perfil del usuario')
+  }
+
+  return { user: data as AuthApiUser }
 }
 
 export interface OpportunityListItem {
